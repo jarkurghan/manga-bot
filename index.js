@@ -15,19 +15,24 @@ const { mangaList } = require("./src/methods.js");
 const { episodeList } = require("./src/methods.js");
 const { sendDataToAdmin } = require("./src/scheduler.js");
 const { selectAllEpisode } = require("./src/methods.js");
+const knex = require("./db/db.js");
 
 bot.start(start);
 bot.on("channel_post", async (ctx) => {
     // const post = ctx.channelPost;
-    // if (post.sender_chat.id == process.env.CHANNEL_ID && post.text === process.env.SENDKEY) {
-    //     sendPostToChannel();
-    // }
+    if (ctx.channelPost.sender_chat.id == process.env.ADMIN_POST_CHANNEL_ID) {
+        const messageText = ctx.channelPost.text || ctx.channelPost.caption || "";
+        content = messageText.split("\n");
+        const manga = await knex("manga").where("name", content[0]).first();
+        if(!manga) {
+            
+        }
+        console.log(manga);
+    }
 
     try {
         const messageId = ctx.channelPost.message_id;
-        const originalText = ctx.channelPost.text || ctx.channelPost.caption || "";
-        console.log(originalText);
-        console.log(originalText);
+        // console.log(originalText);
 
         // console.log(`Kanalda yangi post: ${messageId}`);
 
@@ -38,7 +43,7 @@ bot.on("channel_post", async (ctx) => {
 
         // console.log(`Post muvaffaqiyatli tahrirlandi: ${messageId}`);
     } catch (error) {
-        console.error("Postni tahrirlashda xato:", error.message);
+        console.error(error);
     }
 });
 
