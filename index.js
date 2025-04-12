@@ -1,6 +1,6 @@
 require("dotenv").config({ path: process.env.NODE_ENV === "production" ? ".env.production" : ".env" });
 
-const { Telegraf } = require("telegraf");
+const { Telegraf, Markup } = require("telegraf");
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const { start } = require("./src/start");
@@ -17,21 +17,44 @@ const { sendDataToAdmin } = require("./src/scheduler.js");
 const { selectAllEpisode } = require("./src/methods.js");
 const knex = require("./db/db.js");
 
+const redis = require("./db/redis/index.js");
+const db = require("./db/db.js");
+
+(async () => {
+    await redis.connect();
+    console.log("redis client has connected");
+})();
+
 bot.start(start);
 bot.on("channel_post", async (ctx) => {
-    // const post = ctx.channelPost;
-    if (ctx.channelPost.sender_chat.id == process.env.ADMIN_POST_CHANNEL_ID) {
-        const messageText = ctx.channelPost.text || ctx.channelPost.caption || "";
-        content = messageText.split("\n");
-        const manga = await knex("manga").where("name", content[0]).first();
-        if(!manga) {
-            
-        }
-        console.log(manga);
-    }
-
     try {
-        const messageId = ctx.channelPost.message_id;
+        if (ctx.channelPost.sender_chat.id == process.env.ADMIN_POST_CHANNEL_ID) {
+            const messageText = ctx.channelPost.text || ctx.channelPost.caption || "";
+            content = messageText.split("\n");
+            const manga = await knex("manga").where("name", content[0]).first();
+            if (!manga) {
+                // const messageId = ctx.channelPost.message_id;
+                // const message = `Bunday manga hali botga qo'shilmagan. "${content[0]}"ni qo'shmoqchimisiz?`;
+                // const url = `https://t.me/${process.env.BOT_USERNAME}?start=new_manga_${messageId}`;
+                // const button = { inline_keyboard: [[{ text: "Qo'shish", url }]] };
+                // const options = { parse_mode: "HTML", reply_markup: button };
+                // bot.telegram.sendMessage(process.env.ADMIN_POST_CHANNEL_ID, message, options);
+
+                const message =
+                    `Bunday manga hali botga qo'shilmagan. "${content[0]}"ni qo'shmoqchimisiz?` +
+                    `\n\nBuning uchun quyidagi buyruqni botga yuboring:\n<code>/new_manga\n` +
+                    `Nom: [manga nomi]\nJanr: [janrlari]\nBoblari soni: [son]\n` +
+                    `Holati: [ongoing | tugatilgan | tarjima qilinmoqda | ...]\n` +
+                    `Kalit so'zlar: [keys]</code>`;
+                console.log(message);
+
+                const options = { parse_mode: "HTML" };
+                bot.telegram.sendMessage(process.env.ADMIN_POST_CHANNEL_ID, message, options);
+            }
+
+            console.log(manga);
+        }
+
         // console.log(originalText);
 
         // console.log(`Kanalda yangi post: ${messageId}`);
@@ -44,6 +67,54 @@ bot.on("channel_post", async (ctx) => {
         // console.log(`Post muvaffaqiyatli tahrirlandi: ${messageId}`);
     } catch (error) {
         console.error(error);
+    }
+});
+
+function generate10DigitRandom() {
+    const digits = "0123456789";
+    let result = "";
+    for (let i = 0; i < 10; i++) {
+        result += digits.charAt(Math.floor(Math.random() * digits.length));
+    }
+    return result;
+}
+
+bot.command("new_manga", async (ctx) => {
+    try {
+        if (String(ctx.from.id) !== "6320204709") return ctx.reply("❌ Siz bu buyruqni bajarishga ruxsatga ega emassiz.");
+
+        const parts = ctx.message.text.split("\n").slice(1);
+        const manga = parts.reduce((obj, item) => {
+            if (item.includes(":")) {
+                const index = item.indexOf(":");
+                const key = item.substring(0, index).trim().toLowerCase();
+                const val = item.substring(index + 1).trim();
+                if (key === "nom") obj.name = val;
+                // else if (key === "janr") obj.genres = val;
+                else if (key === "holati") obj.status = val;
+                else if (key === "kalit so'zlar") obj.keys = val;
+                else if (key === "boblari soni") obj.number_of_chapters = Number(val);
+            }
+            return obj;
+        }, {});
+
+        if (!manga.name) return ctx.reply("❌ Manga nomi yuborilmadi!");
+
+        let message = `Yangi manga qo'shish:\n\n<i>Nomi: <b>${manga.name}</b></i>`;
+        if (manga.number_of_chapters) message += `\n<i>Boblari soni: <b>${manga.number_of_chapters}</b></i>`;
+        if (manga.status) message += `\n<i>Holati: <b>${manga.status}</b></i>`;
+        // if (manga.genres) message += `\n<i>Janrlari: <b>${manga.genres}</b></i>`;
+        if (manga.keys) message += `\n<i>Kalit so'zlar: <b>${manga.keys}</b></i>`;
+
+        // if (manga.genres) manga.genres = manga.genres.split(",").map((e) => e.trim());
+
+        const id = generate10DigitRandom();
+        await redis.set("create_manga_" + id, JSON.stringify(manga));
+        const buttons = [[Markup.button.callback("Tayyor", "add_manga_" + id)]];
+        await ctx.reply(message, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
+    } catch (error) {
+        console.error("❌ Xatolik yuz berdi:", error.message);
+        ctx.reply("❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.");
     }
 });
 
@@ -80,6 +151,27 @@ bot.command("changemanga", async (ctx) => {
         ctx.reply(`✅ Postlar ${post1ID} dan ${post2ID} gacha "${name}" matniga o'zgartirildi.`);
     } catch (error) {
         console.error("❌ Xatolik yuz berdi:", error.message);
+        ctx.reply("❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.");
+    }
+});
+
+bot.action(/^add_manga_(\d+)$/, handleMessage, async (ctx) => {
+    try {
+        if (String(ctx.from.id) !== "6320204709") return ctx.reply("❌ Siz bu buyruqni bajarishga ruxsatga ega emassiz.");
+
+        const mangaID = parseInt(ctx.match[1]);
+        const resultJSON = await redis.get("create_manga_" + mangaID);
+        const data = JSON.parse(resultJSON);
+
+        ctx.deleteMessage();
+
+        const isFound = await db("manga").where("name", data.name).first();
+        if (isFound) return ctx.reply("❌ Manga avvaldan mavjud!");
+
+        await db("manga").insert(data);
+        return ctx.reply("✅ " + data.name + " mangasi qo'shildi!");
+    } catch (err) {
+        console.error(err);
         ctx.reply("❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.");
     }
 });
