@@ -4,9 +4,9 @@ const db = require("../db/db");
 const renderMangaPage = async (page = 0) => {
     const pageSize = 10;
     const mangaList = await db("manga");
-    // .leftJoin("episode", "manga.id", "episode.manga_id")
-    // .select("manga.id", "manga.name", "manga.number_of_episode")
-    // .count("episode.episode as episode_count")
+    // .leftJoin("chapter", "manga.id", "chapter.manga_id")
+    // .select("manga.id", "manga.name", "manga.number_of_chapter")
+    // .count("chapter.chapter as chapter_count")
     // .groupBy("manga.id")
     // .orderBy("manga.id");
 
@@ -20,13 +20,11 @@ const renderMangaPage = async (page = 0) => {
 
     const currentPage = getPage(page);
     // const listMaker = (manga, index) =>
-    //     `<i>${index + 1 + page * pageSize}. ${manga.name} - ${manga.number_of_episode == manga.episode_count ? "to'liq" : "tugatilmagan"} - ${
-    //         manga.episode_count
+    //     `<i>${index + 1 + page * pageSize}. ${manga.name} - ${manga.number_of_chapter == manga.chapter_count ? "to'liq" : "tugatilmagan"} - ${
+    //         manga.chapter_count
     //     } qism</i>`;
     const listMaker = (manga, index) => `<i>${index + 1 + page * pageSize}. ${manga.name}</i>`;
-    const textList = `<b>Mangalar ro'yxati: ${page * pageSize + 1}-${page * pageSize + currentPage.length}</b>\n\n` + currentPage.map(listMaker).join("\n")+
-        "\n\n<blockquote>Bot yangiliklaridan xabardor bo'lish uchun @ani_uz_news kanaliga a'zo bo'ling!</blockquote>";
-    // "\n\nBu yerda sizning reklamangiz bo'lishi mumkin edi!";
+    const textList = `<b>Mangalar ro'yxati: ${page * pageSize + 1}-${page * pageSize + currentPage.length}</b>\n\n` + currentPage.map(listMaker).join("\n");
 
     const buttons = [];
     currentPage.forEach((manga, index) => {
@@ -50,37 +48,37 @@ const renderMangaPage = async (page = 0) => {
     return { textList, buttons };
 };
 
-const renderEpisodePage = async (mangaId, page) => {
+const renderChapterPage = async (mangaId, page) => {
     const pageSize = 10;
-    const episodeList = await db("episode").select("id", "episode", "name").where("manga_id", mangaId).groupBy("episode").orderBy("id");
+    const chapterList = await db("chapter").select("*").where("manga_id", mangaId).orderBy("order");
     const manga = await db("manga").select("id", "name").where("id", mangaId).first();
 
-    const totalPages = Math.ceil(episodeList.length / pageSize);
+    const totalPages = Math.ceil(chapterList.length / pageSize);
 
     const getPage = (page) => {
         const start = page * pageSize;
         const end = start + pageSize;
-        return episodeList.slice(start, end);
+        return chapterList.slice(start, end);
     };
 
     const currentPage = getPage(page);
     const textList =
-        `<b>${manga.name}: ${page * pageSize + 1}-${page * pageSize + currentPage.length}</b> \nUmumiy ${episodeList.length} qism\n\n` +
-        currentPage.map((episode, i) => `<i>${page * pageSize + 1 + i}. <b>${episode.episode}</b>. ${episode.name}</i>`).join("\n") +
-        "\n\n<blockquote>Bot yangiliklaridan xabardor bo'lish uchun @ani_uz_news kanaliga a'zo bo'ling!</blockquote>";
-    // "\n\nBu yerda sizning reklamangiz bo'lishi mumkin edi!";
+        `<b>${manga.name}: ${page * pageSize + 1}-${page * pageSize + currentPage.length}</b> \nUmumiy ${chapterList.length} qism\n\n` +
+        currentPage.map((chapter, i) => `<i>${page * pageSize + 1 + i}. <b>${chapter.chapter}</b></i>`).join("\n");
 
     const buttons = [];
-    currentPage.forEach((episode, index) => {
-        const button = Markup.button.callback(`${index + 1 + page * pageSize}`, `episode_${episode.id}`);
+    currentPage.forEach((chapter, index) => {
+        const button = Markup.button.callback(`${index + 1 + page * pageSize}`, `chapter_${chapter.id}`);
         const rowIndex = Math.floor(index / 5);
         if (!buttons[rowIndex]) buttons[rowIndex] = [];
         buttons[rowIndex].push(button);
     });
 
-    const text = `${page * pageSize + 1}-${page * pageSize + currentPage.length}` + "   barchasini tanlash";
-    const query = "all_episode_" + currentPage[0].id + "_" + currentPage[currentPage.length - 1].id;
-    buttons.push([Markup.button.callback(text, query)]);
+    if (page * pageSize + 1 !== page * pageSize + currentPage.length) {
+        const text = `${page * pageSize + 1}-${page * pageSize + currentPage.length}` + "   barchasini tanlash";
+        const query = "all_chapter_" + currentPage[0].id + "_" + currentPage[currentPage.length - 1].id;
+        buttons.push([Markup.button.callback(text, query)]);
+    }
 
     const navigationButtons = [];
     if (page > 0) {
@@ -98,4 +96,4 @@ const renderEpisodePage = async (mangaId, page) => {
     return { textList, buttons };
 };
 
-module.exports = { renderMangaPage, renderEpisodePage };
+module.exports = { renderMangaPage, renderChapterPage };

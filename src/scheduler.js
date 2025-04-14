@@ -1,39 +1,67 @@
 const schedule = require("node-schedule");
 const fs = require("fs");
 const path = require("path");
-const db = require("../db/db");
+const knex = require("../db/db");
+const { logError } = require("../logs");
 
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+const CHANNEL_ID = process.env.STATS_CHANNEL_ID;
+
+function countFilesInDirectory(directoryPath) {
+    return new Promise((resolve, reject) => {
+        fs.readdir(directoryPath, (err, files) => {
+            if (err) reject(err);
+            else {
+                const fileCount = files.filter((file) => fs.statSync(path.join(directoryPath, file)).isFile()).length;
+                resolve(fileCount);
+            }
+        });
+    });
+}
 
 const sendDataToAdmin = (bot) => {
     schedule.scheduleJob("0 0 * * *", async () => {
         try {
-            const users = await db("user").select("*");
-            const manga = await db("manga").select("*");
-            const episodes = await db("episode").select("*");
-            const data = { users, manga, episodes };
+            const tables = await knex("information_schema.tables").select("table_name").where({ table_schema: "public", table_type: "BASE TABLE" });
 
-            const papka = process.env.NODE_ENV === "production" ? "db" : "drafts";
+            const data = {};
+            for (const table of tables) {
+                const tableName = table.table_name;
+                const rows = await knex.select("*").from(tableName);
+                data[tableName] = rows;
+            }
+
+            const papka = "drafts";
             const JSONFilePath = path.join(__dirname, `../${papka}/dump.json`);
-            const DBFilePath = path.join(__dirname, process.env.DATABASE);
-
             await fs.promises.writeFile(JSONFilePath, JSON.stringify(data, null, 2));
-            await bot.telegram.sendDocument(ADMIN_CHAT_ID, { source: DBFilePath }, { caption: "Ma'lumotlar bazasi" });
-            await bot.telegram.sendDocument(ADMIN_CHAT_ID, { source: JSONFilePath }, { caption: "Ma'lumotlar bazasi json fayli." });
+            await bot.telegram.sendDocument(CHANNEL_ID, { source: JSONFilePath }, { caption: "Ma'lumotlar bazasi json fayli." });
             await fs.promises.unlink(JSONFilePath);
+
+            console.log("✅ Ma'lumotlar yuborildi");
+        } catch (error) {
+            console.error("❌ scheduler error:", error.message);
+            logError("scheduler_db", error);
+        }
+
+        try {
+            const users = await knex("user").select("*");
+            const manga = await knex("manga").select("*");
+            const chapters = await knex("chapter").select("*");
+            const errorDir = path.join(__dirname, "../logs/logs");
+            const errors = await countFilesInDirectory(errorDir);
 
             const message =
                 "<b><i>Ma'lumotlar bazasida:</i></b>\n" +
+                `🤖 <i>Bot: @${process.env.BOT_USERNAME}</i>\n` +
                 `📌 <i>Foydalanuvchilar soni: ${users.length}</i>\n` +
                 `🔢 <i>Mangalar soni: ${manga.length}</i>\n` +
-                `🎞 <i>Barcha qismlar soni: ${episodes.length}</i>`;
-            `🎙 <i>Dublyaj studiyalari soni: ${episodes.length}</i>`;
-            await bot.telegram.sendMessage(ADMIN_CHAT_ID, message, { parse_mode: "HTML" });
+                `🎞 <i>Barcha boblar soni: ${chapters.length}</i>\n` +
+                `🔢 <i>Xatoliklar soni: ${errors}</i>\n`;
+            await bot.telegram.sendMessage(CHANNEL_ID, message, { parse_mode: "HTML" });
 
             console.log("✅ scheduler");
         } catch (error) {
-            console.error("❌ scheduler error:");
-            console.error(error);
+            console.error("❌ scheduler error:", error.message);
+            logError("scheduler_stats", error);
         }
     });
 };

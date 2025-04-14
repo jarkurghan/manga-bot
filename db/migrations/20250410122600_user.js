@@ -10,15 +10,15 @@ exports.up = function (knex) {
             table.string("username");
             table.string("first_name");
             table.string("last_name");
-            table.timestamp("created_date").defaultTo(knex.fn.now());
+            table.datetime("created_date").defaultTo(knex.fn.now());
         })
         .createTable("user_page", function (table) {
             table.increments("id").primary();
             table.integer("user_id").notNullable().unique();
             table.foreign("user_id").references("id").inTable("user").onDelete("CASCADE");
             table.integer("manga_id").references("id").inTable("manga");
-            table.integer("manga_page").defaultTo(0);
-            table.integer("episode_page").defaultTo(0);
+            table.integer("manga_page").defaultTo(0).notNullable();
+            table.integer("chapter_page").defaultTo(0).notNullable();
             table.string("searching").defaultTo("");
             table.string("genres").defaultTo("");
             table.string("not_genres").defaultTo("");

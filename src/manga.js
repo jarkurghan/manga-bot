@@ -1,7 +1,7 @@
 const sendManga = async (ctx) => {
     try {
         const manga = ctx.startPayload.slice(6, 12);
-        const channel = process.env.CHANNEL_ID;
+        const channel = process.env.DATA_CHANNEL_ID;
 
         if (manga === "boruto") {
             const post_id = ctx.startPayload.slice(13);

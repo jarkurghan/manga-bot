@@ -10,20 +10,17 @@ exports.up = function (knex) {
             table.integer("number_of_chapters");
             table.string("status").notNullable().defaultTo("to'liq emas");
             table.string("keys");
-            table.timestamp("created_date").defaultTo(knex.fn.now());
+            table.datetime("created_date").defaultTo(knex.fn.now());
         })
         .createTable("chapter", function (table) {
             table.increments("id").primary();
             table.string("chapter").notNullable();
-            table.string("subtitle");
             table.string("posts").notNullable();
+            table.integer("order").notNullable();
+            table.integer("forward_count").defaultTo(0).notNullable();
             table.integer("manga_id").references("id").inTable("manga").notNullable();
-            table.timestamp("created_date").defaultTo(knex.fn.now());
-        })
-        .createTable("manga_genre", function (table) {
-            table.increments("id").primary();
-            table.integer("manga_id").references("id").inTable("manga").notNullable();
-            table.integer("genre_id").references("id").inTable("genre").notNullable();
+            table.unique(["order", "manga_id"]);
+            table.datetime("created_date").defaultTo(knex.fn.now());
         });
 };
 
@@ -32,5 +29,5 @@ exports.up = function (knex) {
  * @returns { Promise<void> }
  */
 exports.down = function (knex) {
-    return knex.schema.dropTable("chapter").dropTable("manga");
+    return knex.schema.dropTable("manga_genre").dropTable("chapter").dropTable("manga");
 };
