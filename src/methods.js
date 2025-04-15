@@ -64,7 +64,7 @@ const selectManga = async (ctx) => {
             const chapter = await knex("chapter").where("manga_id", mangaID).first();
 
             const posts = chapter.posts.split(",");
-            for (let i = 0; i < posts.length; i++) await ctx.telegram.copyMessage(ctx.chat.id, channel, posts[i]);
+            for (let i = 0; i < posts.length; i++) await ctx.telegram.copyMessage(ctx.chat.id, channel, posts[i], { protect_content: true });
 
             const buttons = [[Markup.button.callback("📂 Mangalar ro'yxati", "manga_list")]];
             await ctx.reply("Quyidagi menulardan birini tanlang 👇", { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
@@ -113,7 +113,7 @@ const selectChapter = async (ctx) => {
         if (!chapter) return ctx.reply("❌ Topilmadi!");
 
         const posts = chapter.posts.split(",");
-        for (let i = 0; i < posts.length; i++) await ctx.telegram.copyMessage(ctx.chat.id, channel, posts[i]);
+        for (let i = 0; i < posts.length; i++) await ctx.telegram.copyMessage(ctx.chat.id, channel, posts[i], { protect_content: true });
 
         const buttons = [[Markup.button.callback("📄 Boblar ro'yxati", "chapter_list")], [Markup.button.callback("📂 Mangalar ro'yxati", "manga_list")]];
         await ctx.reply("Quyidagi menulardan birini tanlang 👇", { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
@@ -142,7 +142,7 @@ const selectAllChapter = async (ctx) => {
         for (let i = 0; i < chapters.length; i++) {
             const chapter = await knex("chapter").where({ manga_id: chapters[i].manga_id, chapter: chapters[i].chapter }).first();
             const posts = chapter.posts.split(",");
-            for (let k = 0; k < posts.length; k++) await ctx.telegram.copyMessage(ctx.chat.id, channel, posts[k]);
+            for (let k = 0; k < posts.length; k++) await ctx.telegram.copyMessage(ctx.chat.id, channel, posts[k], { protect_content: true });
         }
 
         const buttons = [[Markup.button.callback("📄 Boblar ro'yxati", "chapter_list")], [Markup.button.callback("📂 Mangalar ro'yxati", "manga_list")]];
