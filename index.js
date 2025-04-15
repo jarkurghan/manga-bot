@@ -18,6 +18,8 @@ const { mangaList } = require("./src/methods.js");
 const { chapterList } = require("./src/methods.js");
 const { sendDataToAdmin } = require("./src/scheduler.js");
 const { selectAllChapter } = require("./src/methods.js");
+const { reserFilter } = require("./src/methods.js");
+const { search } = require("./src/methods.js");
 
 bot.start(start);
 
@@ -35,6 +37,8 @@ bot.action(/^all_chapter_(\d+)_(\d+)$/, selectAllChapter);
 bot.action(/^elist_(\d+)_(\d+)$/, chapterPage);
 bot.action(/^chapter_list$/, chapterList);
 bot.action(/^manga_list$/, mangaList);
+bot.action(/^remove_searching$/, reserFilter);
+bot.on("message", search);
 
 sendDataToAdmin(bot);
 

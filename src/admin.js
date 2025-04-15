@@ -2,6 +2,7 @@ const { Telegraf } = require("telegraf");
 const { Markup } = require("telegraf");
 const knex = require("../db/db");
 const redis = require("../db/redis/index.js");
+const { logError } = require("../logs");
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 

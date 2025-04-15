@@ -1,3 +1,5 @@
+const { logError } = require("../logs");
+
 const sendManga = async (ctx) => {
     try {
         const manga = ctx.startPayload.slice(6, 12);
@@ -53,9 +55,10 @@ const sendManga = async (ctx) => {
                     return false;
             }
         }
-    } catch (err) {
-        console.error(err);
-        ctx.reply("❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.");
+    } catch (error) {
+        console.error(error.message);
+        logError("new_post", error);
+        ctx.reply("❌ Xatolik yuz berdi. Iltimos, dasturchiga xabar bering.");
     }
 };
 

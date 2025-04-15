@@ -1,14 +1,20 @@
 const { Markup } = require("telegraf");
 const db = require("../db/db");
 
-const renderMangaPage = async (page = 0) => {
+const renderMangaPage = async (page = 0, search) => {
     const pageSize = 10;
-    const mangaList = await db("manga");
-    // .leftJoin("chapter", "manga.id", "chapter.manga_id")
-    // .select("manga.id", "manga.name", "manga.number_of_chapter")
-    // .count("chapter.chapter as chapter_count")
-    // .groupBy("manga.id")
-    // .orderBy("manga.id");
+    const mangaList = await db("manga")
+        .leftJoin("chapter", "manga.id", "chapter.manga_id")
+        .count("chapter.chapter as chapter_count")
+        .where((qb) => {
+            if (search) {
+                qb.where("manga.name", "ILIKE", `%${search}%`);
+                qb.orWhere("manga.keys", "ILIKE", `%${search}%`);
+            }
+        })
+        .groupBy("manga.id")
+        .orderBy("manga.id")
+        .select("manga.*");
 
     const totalPages = Math.ceil(mangaList.length / pageSize);
 
@@ -19,11 +25,8 @@ const renderMangaPage = async (page = 0) => {
     };
 
     const currentPage = getPage(page);
-    // const listMaker = (manga, index) =>
-    //     `<i>${index + 1 + page * pageSize}. ${manga.name} - ${manga.number_of_chapter == manga.chapter_count ? "to'liq" : "tugatilmagan"} - ${
-    //         manga.chapter_count
-    //     } qism</i>`;
-    const listMaker = (manga, index) => `<i>${index + 1 + page * pageSize}. ${manga.name}</i>`;
+    const listMaker = (manga, index) =>
+        `<i>${index + 1 + page * pageSize}. ${manga.name} - ${manga.status} - ${manga.chapter_count}/${manga.number_of_chapters}</i>`;
     const textList = `<b>Mangalar ro'yxati: ${page * pageSize + 1}-${page * pageSize + currentPage.length}</b>\n\n` + currentPage.map(listMaker).join("\n");
 
     const buttons = [];
@@ -35,16 +38,12 @@ const renderMangaPage = async (page = 0) => {
     });
 
     const navigationButtons = [];
-    if (page > 0) {
-        navigationButtons.push(Markup.button.callback("⬅️ Oldingi", `manga_list_${page - 1}`));
-    }
-    if (page < totalPages - 1) {
-        navigationButtons.push(Markup.button.callback("Keyingi ➡️", `manga_list_${page + 1}`));
-    }
-    if (navigationButtons.length > 0) {
-        buttons.push(navigationButtons);
-    }
+    if (page > 0) navigationButtons.push(Markup.button.callback("⬅️", `manga_list_${page - 1}`));
+    if (search) navigationButtons.push(Markup.button.callback("❌", "remove_searching"));
+    if (page < totalPages - 1) navigationButtons.push(Markup.button.callback("➡️", `manga_list_${page + 1}`));
+    if (navigationButtons.length > 0) buttons.push(navigationButtons);
 
+    if (mangaList.length === 0) return { textList: "<b>Manga topilmadi!</b>", buttons };
     return { textList, buttons };
 };
 

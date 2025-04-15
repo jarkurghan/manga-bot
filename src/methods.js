@@ -1,18 +1,49 @@
 const { Markup } = require("telegraf");
 const { renderChapterPage } = require("./render-page");
 const { renderMangaPage } = require("./render-page");
+const { logError } = require("../logs");
 const knex = require("../db/db");
+
+const search = async (ctx) => {
+    try {
+        if (ctx.message.chat.type === "private") {
+            const message = ctx.message.text;
+            const user = await knex("user").where("user_id", ctx.from.id).first();
+            if (!user) return ctx.reply("❌ Foydalanuvchi ma'lumotlari topilmadi. Iltimos, /start buyrug'ini bosing.");
+            await knex("user_page").where("user_id", user.id).update({ manga_page: 0, chapter_page: 0, searching: message });
+            const { textList, buttons } = await renderMangaPage(0, message);
+            await ctx.reply(textList, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
+        }
+    } catch (error) {
+        console.error(error.message);
+        logError("change_page", error);
+        ctx.reply("❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.");
+    }
+};
+
+const reserFilter = async (ctx) => {
+    try {
+        const user = await knex("user").where("user_id", ctx.from.id).first();
+        if (!user) return ctx.reply("❌ Foydalanuvchi ma'lumotlari topilmadi. Iltimos, /start buyrug'ini bosing.");
+        await knex("user_page").where("user_id", user.id).update({ manga_page: 0, chapter_page: 0, searching: "" });
+        const { textList, buttons } = await renderMangaPage(0, "");
+        await ctx.editMessageText(textList, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
+    } catch (error) {
+        console.error(error.message);
+        logError("change_page", error);
+        ctx.reply("❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.");
+    }
+};
 
 const changePage = async (ctx) => {
     try {
         const page = parseInt(ctx.match[1]);
         const user = await knex("user").where("user_id", ctx.from.id).first();
         if (!user) return ctx.reply("❌ Foydalanuvchi ma'lumotlari topilmadi. Iltimos, /start buyrug'ini bosing.");
-        await knex("user_page").where("user_id", user.id).update({ manga_page: page });
+        const userPage = await knex("user_page").where("user_id", user.id).update({ manga_page: page }).returning("*");
 
-        const { textList, buttons } = await renderMangaPage(page);
-        const keyboard = Markup.inlineKeyboard(buttons);
-        await ctx.editMessageText(textList, { parse_mode: "HTML", ...keyboard });
+        const { textList, buttons } = await renderMangaPage(page, userPage[0].searching);
+        await ctx.editMessageText(textList, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
     } catch (error) {
         console.error(error.message);
         logError("change_page", error);
@@ -130,7 +161,7 @@ const backToManga = async (ctx) => {
         if (!user) return ctx.reply("❌ Foydalanuvchi ma'lumotlari topilmadi. Iltimos, /start buyrug'ini bosing.");
         const page = await knex("user_page").where("user_id", user.id);
 
-        const { textList, buttons } = await renderMangaPage(page.manga_page);
+        const { textList, buttons } = await renderMangaPage(page.manga_page, page.searching);
         const keyboard = Markup.inlineKeyboard(buttons);
         await ctx.reply(textList, { parse_mode: "HTML", ...keyboard });
 
@@ -147,7 +178,7 @@ const mangaList = async (ctx) => {
         const user = await knex("user").where("user_id", ctx.from.id).first();
         if (!user) return ctx.reply("❌ Foydalanuvchi ma'lumotlari topilmadi. Iltimos, /start buyrug'ini bosing.");
         const page = await knex("user_page").where("user_id", user.id).first();
-        const { textList, buttons } = await renderMangaPage(page.manga_page);
+        const { textList, buttons } = await renderMangaPage(page.manga_page, page.searching);
         const keyboard = Markup.inlineKeyboard(buttons);
         await ctx.reply(textList, { parse_mode: "HTML", ...keyboard });
         await ctx.deleteMessage();
@@ -174,4 +205,4 @@ const chapterList = async (ctx) => {
     }
 };
 
-module.exports = { renderMangaPage, changePage, selectManga, selectChapter, selectAllChapter, chapterPage, backToManga, mangaList, chapterList };
+module.exports = { changePage, selectManga, selectChapter, selectAllChapter, chapterPage, backToManga, mangaList, chapterList, search, reserFilter };

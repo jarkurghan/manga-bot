@@ -1,9 +1,9 @@
 const { Telegraf, Markup } = require("telegraf");
 const db = require("../db/db");
 const { checkSubscription } = require("./check-subscription");
-const { renderMangaPage } = require("./methods");
 const { sendManga } = require("./manga");
 const { logError } = require("../logs");
+const { renderMangaPage } = require("./render-page");
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -55,8 +55,8 @@ async function start(ctx) {
         //     if (manga) return;
         // }
 
-        const page = existingUser ? await db("user_page").where({ user_id: existingUser.id }).first().page : 0;
-        const { textList, buttons } = await renderMangaPage(page);
+        const page = existingUser ? await db("user_page").where({ user_id: existingUser.id }).first() : { page: 0, searching: "" };
+        const { textList, buttons } = await renderMangaPage(page.page, page.searching);
         await ctx.reply(textList, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
     } catch (err) {
         console.error(err.message);
