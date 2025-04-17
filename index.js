@@ -5,6 +5,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const { start } = require("./src/start");
 const { newPost } = require("./src/admin.js");
+const { setActive } = require("./src/admin.js");
 const { newManga } = require("./src/admin.js");
 const { addManga } = require("./src/admin.js");
 const { addChapter } = require("./src/admin.js");
@@ -27,6 +28,7 @@ bot.on("channel_post", newPost);
 bot.command("new_manga", newManga);
 bot.action(/^add_manga_(\d+)$/, addManga);
 bot.action(/^add_chapter_(\d+)$/, addChapter);
+bot.action(/^set_active_manga_(\d+)$/, setActive);
 bot.action(/^delete_message_(\d+)$/, deleteMessage);
 
 bot.action(/^manga_(\d+)$/, selectManga);

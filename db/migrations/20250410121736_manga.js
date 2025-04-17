@@ -29,5 +29,5 @@ exports.up = function (knex) {
  * @returns { Promise<void> }
  */
 exports.down = function (knex) {
-    return knex.schema.dropTable("manga_genre").dropTable("chapter").dropTable("manga");
+    return knex.schema.dropTable("chapter").dropTable("manga");
 };

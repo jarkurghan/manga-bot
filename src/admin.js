@@ -20,43 +20,91 @@ function generate10DigitRandom() {
     return result;
 }
 
+const activeManga = {};
 const newPost = async (ctx) => {
     try {
         const sender = ctx.channelPost.sender_chat.id;
-        if (sender == process.env.DATA_CHANNEL_ID) {
-            const msgID = ctx.channelPost.message_id;
-            const messageText = ctx.channelPost.text || ctx.channelPost.caption || "";
-            const content = messageText.split("\n");
-            const manga = await knex("manga").where("name", content[0]).first();
-            if (!manga) {
-                const message =
-                    `Bunday manga hali botga qo'shilmagan. "${content[0]}"ni qo'shmoqchimisiz?` +
-                    `\n\nBuning uchun quyidagi buyruqni botga yuboring:\n<code>/new_manga\n` +
-                    `Nom: [manga nomi]\nJanr: [janrlari]\nBoblari soni: [son]\n` +
-                    `Holati: [ongoing | one-shot | tugatilgan | tarjima qilinmoqda | ...]\n` +
-                    `Kalit so'zlar: [keys]</code>`;
+        // if (sender == process.env.DATA_CHANNEL_ID) {
+        //     const msgID = ctx.channelPost.message_id;
+        //     const messageText = ctx.channelPost.text || ctx.channelPost.caption || "";
+        //     const content = messageText.split("\n");
+        //     const manga = await knex("manga").where("name", content[0]).first();
+        //     if (!manga) {
+        //         const message =
+        //             `Bunday manga hali botga qo'shilmagan. "${content[0]}"ni qo'shmoqchimisiz?` +
+        //             `\n\nBuning uchun quyidagi buyruqni botga yuboring:\n<code>/new_manga\n` +
+        //             `Nom: [manga nomi]\nJanr: [janrlari]\nBoblari soni: [son]\n` +
+        //             `Holati: [ongoing | one-shot | tugatilgan | tarjima qilinmoqda | ...]\n` +
+        //             `Kalit so'zlar: [keys]</code>`;
 
-                const cancelButton = [Markup.button.callback("❌ Bekor qilish", "delete_message_" + msgID)];
-                const options = { parse_mode: "HTML", ...Markup.inlineKeyboard([cancelButton]) };
-                bot.telegram.sendMessage(sender, message, options);
-            } else {
-                const chapter = content[1].trim();
-                const chapters = await knex("chapter").orderBy("order", "desc").first().select("*");
-                const order = (chapters || { order: 0 }).order + 1;
-                const data = { chapter, posts: msgID, order, manga_id: manga.id };
-                const message = `Yangi bob qo'shishni tasdiqlang\n\nManga: <b>${manga.name}</b>\nBob: <b>${chapter}</b>\nBob tartibi: ${order}`;
+        //         const cancelButton = [Markup.button.callback("❌ Bekor qilish", "delete_message_" + msgID)];
+        //         const options = { parse_mode: "HTML", ...Markup.inlineKeyboard([cancelButton]) };
+        //         bot.telegram.sendMessage(sender, message, options);
+        //     } else {
+        //         const chapter = content[1].trim();
+        //         const chapters = await knex("chapter").where("manga_id", manga.id).orderBy("order", "desc").first().select("*");
+        //         const order = (chapters || { order: 0 }).order + 1;
+        //         const data = { chapter, posts: msgID, order, manga_id: manga.id };
+        //         const message = `Yangi bob qo'shishni tasdiqlang\n\nManga: <b>${manga.name}</b>\nBob: <b>${chapter}</b>\nBob tartibi: ${order}`;
 
-                const id = generate10DigitRandom();
-                await redis.set("create_chapter_" + id, JSON.stringify(data));
-                const verifyButton = [Markup.button.callback("✅ Tasdiqlash", "add_chapter_" + id)];
-                const cancelButton = [Markup.button.callback("❌ Bekor qilish", "delete_message_" + msgID)];
-                const options = { parse_mode: "HTML", ...Markup.inlineKeyboard([verifyButton, cancelButton]) };
-                bot.telegram.sendMessage(sender, message, options);
+        //         const id = generate10DigitRandom();
+        //         await redis.set("create_chapter_" + id, JSON.stringify(data));
+        //         const verifyButton = [Markup.button.callback("✅ Tasdiqlash", "add_chapter_" + id)];
+        //         const cancelButton = [Markup.button.callback("❌ Bekor qilish", "delete_message_" + msgID)];
+        //         const options = { parse_mode: "HTML", ...Markup.inlineKeyboard([verifyButton, cancelButton]) };
+        //         bot.telegram.sendMessage(sender, message, options);
+        //     }
+        // }
+
+        if (sender == process.env.DATA_MAKE_CHANNEL_ID) {
+            const file = ctx.channelPost.document || ctx.channelPost;
+            if (file && file.mime_type === "application/pdf") {
+                if (activeManga.id) {
+                    const msgID = ctx.channelPost.message_id;
+                    const chapters = await knex("chapter").where("manga_id", activeManga.id).orderBy("order", "asc").first().select("*");
+                    const order = (chapters || { order: 0 }).order + 1;
+                    const message = `${activeManga.name}\n${order}-bob\n\n@shadowmangauz`;
+                    const msg = await bot.telegram.editMessageCaption(sender, msgID, null, message, { parse_mode: "HTML" });
+                    const base = await ctx.telegram.copyMessage(process.env.DATA_CHANNEL_ID, sender, msg.message_id);
+                    const data = { chapter: `${order}-bob`, posts: base.message_id, order, manga_id: activeManga.id };
+                    await knex("chapter").insert(data);
+                } else {
+                    const buttons = [];
+                    const mangas = await knex("manga").select("id", "name");
+                    for (const manga of mangas) buttons.push([Markup.button.callback(manga.name, "set_active_manga_" + manga.id)]);
+                    const message = "Qaysi mangaga qo'shish aniqlanmadi\nDavom etish uchun quyidagi mangalardan birini tanlang:";
+                    const options = { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) };
+                    const pin = await bot.telegram.sendMessage(sender, message, options);
+                    await ctx.telegram.pinChatMessage(sender, pin.message_id, { disable_notification: true });
+                }
             }
         }
     } catch (error) {
         console.error(error.message);
         logError("new_post", error);
+        ctx.reply("❌ Xatolik yuz berdi. Iltimos, dasturchiga xabar bering.");
+    }
+};
+
+const setActive = async (ctx) => {
+    try {
+        if (!process.env.ADMIN_IDS.includes(String(ctx.from.id))) return ctx.reply("❌ Siz bu buyruqni bajarishga ruxsatga ega emassiz.");
+
+        const mangaID = parseInt(ctx.match[1]);
+
+        const isFound = await knex("manga").where("id", mangaID).first();
+        if (!isFound) return ctx.reply("❌ Manga topilmadi!");
+
+        activeManga.id = mangaID;
+        activeManga.name = isFound.name;
+
+        const succesMessage = await ctx.reply('✅ "' + activeManga.name + '" tanlandi!');
+        setTimeout(() => {
+            ctx.deleteMessage(succesMessage.message_id);
+        }, 20000);
+    } catch (error) {
+        console.error(error.message);
+        logError("new_manga", error);
         ctx.reply("❌ Xatolik yuz berdi. Iltimos, dasturchiga xabar bering.");
     }
 };
@@ -135,6 +183,14 @@ const addChapter = async (ctx) => {
         setTimeout(() => {
             ctx.deleteMessage(succesMessage.message_id);
         }, 20000);
+
+        const buttons = [];
+        const mangas = await knex("manga").select("id", "name");
+        for (const manga of mangas) buttons.push([Markup.button.callback(manga.name, "set_active_manga_" + manga.id)]);
+        const message = "Yangi manga qo'shildi\nAktiv mangani belgilash uchun quyidagi mangalardan birini tanlang:";
+        const options = { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) };
+        const pin = await bot.telegram.sendMessage(process.env.DATA_MAKE_CHANNEL_ID, message, options);
+        await ctx.telegram.pinChatMessage(process.env.DATA_MAKE_CHANNEL_ID, pin.message_id, { disable_notification: true });
     } catch (error) {
         console.error(error.message);
         logError("add_chapter", error);
@@ -154,4 +210,4 @@ const deleteMessage = async (ctx) => {
     }
 };
 
-module.exports = { newPost, newManga, addManga, addChapter, deleteMessage, generate10DigitRandom };
+module.exports = { newPost, newManga, addManga, addChapter, deleteMessage, generate10DigitRandom, setActive };
