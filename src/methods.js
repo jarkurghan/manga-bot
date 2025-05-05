@@ -16,7 +16,7 @@ const search = async (ctx) => {
         }
     } catch (error) {
         console.error(error.message);
-        logError("change_page", error);
+        logError("search", error);
         ctx.reply("❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.");
     }
 };

@@ -45,7 +45,7 @@ async function start(ctx) {
 
         if (notSubscribed.length > 0) {
             const message = "❌ Botdan foydalanish uchun quyidagi kanal" + (requiredChannels.length > 1 ? "lar" : "") + "ga a'zo bo'ling:";
-            const buttons = notSubscribed.map((channel) => [{ text: channel.name, url: `https://t.me/${channel.username.slice(1)}` }]);
+            const buttons = notSubscribed.map((channel) => [{ text: channel.name, url: channel.username }]);
             return ctx.reply(message, Markup.inlineKeyboard(buttons));
         }
 
