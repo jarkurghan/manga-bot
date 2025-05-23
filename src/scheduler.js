@@ -50,12 +50,11 @@ const sendDataToAdmin = (bot) => {
             const errors = await countFilesInDirectory(errorDir);
 
             const message =
-                "<b><i>Ma'lumotlar bazasida:</i></b>\n" +
-                `🤖 <i>Bot: @${process.env.BOT_USERNAME}</i>\n` +
-                `📌 <i>Foydalanuvchilar soni: ${users.length}</i>\n` +
-                `🔢 <i>Mangalar soni: ${manga.length}</i>\n` +
-                `🎞 <i>Barcha boblar soni: ${chapters.length}</i>\n` +
-                `🔢 <i>Xatoliklar soni: ${errors}</i>\n`;
+                `🤖 <i>Bot: <b>@${process.env.BOT_USERNAME}</b></i>\n` +
+                `📌 <i>Foydalanuvchilar soni: <b>${users.length} ta</b></i>\n` +
+                `🔢 <i>Mangalar soni: <b>${manga.length} ta</b></i>\n` +
+                `🎞 <i>Barcha boblar soni: <b>${chapters.length} ta</b></i>\n` +
+                `🔢 <i>Xatoliklar soni: <b>${errors} ta</b></i>\n`;
             await bot.telegram.sendMessage(CHANNEL_ID, message, { parse_mode: "HTML" });
 
             console.log("✅ scheduler");
